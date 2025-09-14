@@ -1,0 +1,101 @@
+volumes:
+  postgresql-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/data/postgresql
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/data/redis
+
+services:
+  # PostgreSQL Database
+  postgresql:
+    image: postgres:15.14-alpine
+    container_name: certis-postgresql
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+      - ./db/migration:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"  # 외부 접근을 위해 포트 노출
+    networks:
+      - database-network
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=${POSTGRES_INITDB_ARGS}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS}
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS}
+      -c effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE}
+      -c maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM}
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=${POSTGRES_WAL_BUFFERS}
+      -c default_statistics_target=100
+      # 외부 접근을 위한 설정
+      -c listen_addresses='*'
+
+  # Redis Service
+  redis:
+    image: redis:latest
+    container_name: certis-redis
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"  # 외부 접근을 위해 포트 노출
+    networks:
+      - database-network
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory ${REDIS_MAX_MEMORY}
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      # 외부 접근을 위한 설정
+      --bind 0.0.0.0
+      --requirepass ${REDIS_PASSWORD}
+      --protected-mode no
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+
+  # 모니터링을 위한 Nginx (선택사항)
+  nginx:
+    image: nginx:alpine
+    container_name: database-nginx
+    ports:
+      - "80:80"
+    networks:
+      - database-network
+    volumes:
+      - ./nginx/database-status.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - postgresql
+      - redis
+    restart: unless-stopped
+
+networks:
+  database-network:
+    driver: bridge
+    internal: false
