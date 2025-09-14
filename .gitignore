@@ -16,3 +16,4 @@ logs
 
 FE
 Redis
+.env
