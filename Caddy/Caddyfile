@@ -1,10 +1,92 @@
-# HTTP 차단: 80번 포트 요청을 즉시 거부
-http://localhost {
-    respond "Access denied" 403
+# API 서버 설정 (실제 도메인 사용)
+{$DOMAIN} {
+    # CORS 헤더 설정 (Vercel + CloudFlare에서 접근 허용)
+    @cors_preflight method OPTIONS
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "{$CORS_ALLOWED_ORIGINS}"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        header Access-Control-Max-Age "86400"
+        respond "" 204
+    }
+
+    # API 요청 처리
+    handle /api/* {
+        # CORS 헤더 추가
+        header Access-Control-Allow-Origin "{$CORS_ALLOWED_ORIGINS}"
+        header Access-Control-Allow-Credentials "true"
+        
+        # Spring Boot 백엔드로 프록시
+        reverse_proxy backend:8080 {
+            # 헬스체크
+            health_uri /actuator/health
+            health_interval 30s
+            health_timeout 10s
+            
+            # 요청 헤더 설정
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # 액추에이터 엔드포인트 (관리용 - IP 제한 권장)
+    handle /actuator/* {
+        # 특정 IP에서만 접근 허용 (예: 관리자 IP)
+        # @admin_ip remote_ip 203.0.113.1
+        # handle @admin_ip {
+            reverse_proxy backend:8080
+        # }
+        # handle {
+        #     respond "Forbidden" 403
+        # }
+    }
+
+    # 기본 요청 (루트)
+    handle {
+        respond "API Server is running" 200
+    }
+
+    # 자동 HTTPS (Let's Encrypt)
+    tls {
+        # 실제 운영환경에서는 이메일 설정 권장
+        # email admin@cert-is.com
+    }
+
+    # 로깅 설정
+    log {
+        output file /var/log/caddy/api_access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format console
+    }
+
+    # 보안 헤더
+    header {
+        # XSS 보호
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        
+        # HSTS (HTTPS 강제)
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        
+        # CSP (필요에 따라 조정)
+        Content-Security-Policy "default-src 'self'; connect-src 'self' https://www.cert-is.com https://cert-is.com"
+        
+        # 서버 정보 숨기기
+        -Server
+        
+        # 추가 보안 헤더
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
 }
 
-# HTTPS를 통한 frontend 접근만 허용 (포트 5173에서만 서비스)
-https://localhost:5173 {
-    reverse_proxy frontend:5173
-    tls /etc/caddy/certs/server.crt /etc/caddy/private/server_pkey.pem
+# HTTP에서 HTTPS로 리다이렉트
+http://api.cert-is.com {
+    redir https://api.cert-is.com{uri} permanent
 }
