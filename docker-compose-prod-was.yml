@@ -1,0 +1,98 @@
+volumes:
+  caddy_data:
+  caddy_config:
+
+services:
+  # Spring Boot Backend
+  backend:
+    build:
+      context: BE
+      dockerfile: Dockerfile
+    container_name: certis-backend
+    networks:
+      - app-network
+    env_file:
+      - ./BE/.env.prod
+    environment:
+      # 외부 데이터베이스 연결 설정 (데이터베이스 인스턴스의 IP/도메인)
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_INSTANCE_HOST}:5432/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      # 외부 Redis 연결 설정
+      - SPRING_DATA_REDIS_HOST=${REDIS_INSTANCE_HOST}
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD}
+      # 프로파일 및 기타 설정
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - EMBEDDED_POSTGRES_ENABLED=false
+      - EMBEDDED_REDIS_ENABLED=false
+      - CACHE_TYPE=${CACHE_TYPE}
+      # CORS 설정
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      # JVM 최적화
+      - JAVA_OPTS=${JAVA_OPTS}
+      # 서버 설정
+      - SERVER_PORT=8080
+      # 연결 풀 설정 (외부 DB 연결 최적화)
+      - SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=20
+      - SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=5
+      - SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT=30000
+      - SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT=600000
+      - SPRING_DATASOURCE_HIKARI_MAX_LIFETIME=1800000
+    init: true
+    expose:
+      - 8080
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Caddy Reverse Proxy - 경량 설정
+  caddy:
+    image: caddy:2-alpine
+    container_name: certis-caddy
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./Caddy/Caddyfile:/etc/caddy/Caddyfile
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - app-network
+    # 메모리 제한 (Caddy용 100MB 할당)
+    mem_limit: 100m
+    mem_reservation: 50m
+    cpus: 0.3
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - DOMAIN=${DOMAIN}
+
+  # 시스템 모니터링 (경량)
+  watchtower:
+    image: containrrr/watchtower
+    container_name: app-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 3 * * *  # 매일 새벽 3시 업데이트 확인 (DB 인스턴스와 1시간 차이)
+    restart: unless-stopped
+    mem_limit: 50m
+
+networks:
+  app-network:
+    driver: bridge
+    internal: false
