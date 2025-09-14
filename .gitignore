@@ -11,3 +11,5 @@ app_startup.log
 
 db
 logs
+
+.DS_Store
