@@ -1,0 +1,142 @@
+# 개발환경용 Docker Compose
+# 사용법: docker-compose -f docker-compose.local.yml --env-file .env.local up -d
+
+volumes:
+  postgresql-data-local:
+  redis-data-local:
+
+services:
+  # Spring Boot Backend (개발환경용)
+  backend:
+    build:
+      context: BE
+      dockerfile: Dockerfile
+    container_name: certis-backend-local
+    networks:
+      - cert-is-local
+    env_file:
+      - ./BE/.env.local
+    environment:
+      # PostgreSQL 연결 설정 (로컬 컨테이너용)
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql-local:5432/certis_dev
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATA_REDIS_HOST=redis-local
+      - SPRING_DATA_REDIS_PORT=6379
+      # 개발 설정
+      - SPRING_PROFILES_ACTIVE=local
+      - EMBEDDED_POSTGRES_ENABLED=false  # 컨테이너 PostgreSQL 사용
+      - EMBEDDED_REDIS_ENABLED=false     # 컨테이너 Redis 사용
+      - CACHE_TYPE=redis
+      # 개발환경 CORS
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080
+      # 개발용 JVM 설정
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    ports:
+      - "8080:8080"   # 애플리케이션 포트
+      - "5005:5005"   # 원격 디버깅 포트
+    volumes:
+      # 개발용 볼륨 마운트 (Hot Reload 지원)
+      - ./BE/src:/app/src:ro
+      - ./uploads:/app/uploads
+    depends_on:
+      postgresql-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database (개발환경용)
+  postgresql-local:
+    image: postgres:15.14-alpine
+    container_name: certis-postgresql-local
+    volumes:
+      - postgresql-data-local:/var/lib/postgresql/data
+      - ./db/migration:/docker-entrypoint-initdb.d
+      - ./db/dev-data:/docker-entrypoint-initdb.d/dev-data  # 개발용 샘플 데이터
+    networks:
+      - cert-is-local
+    environment:
+      - POSTGRES_DB=certis_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
+    ports:
+      - "5432:5432"  # 개발환경에서는 표준 포트 사용
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d certis_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c log_min_duration_statement=0
+      -c max_connections=50
+      -c shared_buffers=128MB
+
+  # Redis Service (개발환경용)
+  redis-local:
+    image: redis:latest
+    container_name: certis-redis-local
+    volumes:
+      - redis-data-local:/data
+    networks:
+      - cert-is-local
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel verbose
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 개발용 데이터베이스 관리 도구 (선택사항)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: certis-pgadmin-local
+    networks:
+      - cert-is-local
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@certis.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgresql-local
+    restart: unless-stopped
+
+  # 개발용 Redis 관리 도구 (선택사항)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: certis-redis-commander-local
+    networks:
+      - cert-is-local
+    environment:
+      - REDIS_HOSTS=local:redis-local:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis-local
+    restart: unless-stopped
+
+networks:
+  cert-is-local:
+    driver: bridge

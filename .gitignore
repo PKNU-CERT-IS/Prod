@@ -1,0 +1,13 @@
+./pgadmin/sessions/*
+.cursor/*
+.idea/*
+logs/*
+
+.cursor
+.idea
+pgadmin
+uploads
+app_startup.log
+
+db
+logs

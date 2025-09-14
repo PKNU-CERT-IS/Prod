@@ -1,0 +1,153 @@
+# 개발환경용 Docker Compose
+# 사용법: docker-compose -f docker-compose-dev.yml --env-file .env.dev up -d
+
+volumes:
+  postgresql-data-dev:
+  redis-data-dev:
+
+services:
+  # Spring Boot Backend (개발환경용)
+  backend:
+    build:
+      context: BE
+      dockerfile: Dockerfile
+    container_name: certis-backend-dev
+    networks:
+      - cert-is-dev
+    env_file:
+      - ./BE/.env.dev
+    environment:
+      # PostgreSQL 연결 설정 (개발 컨테이너용)
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql-dev:5432/certis_dev
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATA_REDIS_HOST=redis-dev
+      - SPRING_DATA_REDIS_PORT=6379
+      # 개발 설정
+      - SPRING_PROFILES_ACTIVE=dev
+      - EMBEDDED_POSTGRES_ENABLED=false  # 컨테이너 PostgreSQL 사용
+      - EMBEDDED_REDIS_ENABLED=false     # 컨테이너 Redis 사용
+      - CACHE_TYPE=redis
+      # 개발환경 CORS
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173
+      # 개발용 JVM 설정 (원격 디버깅 포함)
+      - JAVA_OPTS=-Xmx1g -Xms512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      # API 문서화 활성화
+      - API_DOCS_ENABLED=true
+      - SWAGGER_UI_ENABLED=true
+    ports:
+      - "8080:8080"   # 애플리케이션 포트
+      - "5005:5005"   # 원격 디버깅 포트
+    volumes:
+      # 개발용 볼륨 마운트 (로그 및 업로드 파일)
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    depends_on:
+      postgresql-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL Database (개발환경용)
+  postgresql-dev:
+    image: postgres:15.14-alpine
+    container_name: certis-postgresql-dev
+    volumes:
+      - postgresql-data-dev:/var/lib/postgresql/data
+      - ./db/migration:/docker-entrypoint-initdb.d/migration
+      - ./db/dev-data:/docker-entrypoint-initdb.d/dev-data  # 개발용 샘플 데이터
+    networks:
+      - cert-is-dev
+    environment:
+      - POSTGRES_DB=certis_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
+    ports:
+      - "5432:5432"  # 개발환경에서는 표준 포트 사용
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d certis_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c log_min_duration_statement=100
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+
+  # Redis Service (개발환경용)
+  redis-dev:
+    image: redis:latest
+    container_name: certis-redis-dev
+    volumes:
+      - redis-data-dev:/data
+      - ./Redis/redis-dev.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - cert-is-dev
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 300 10
+      --loglevel notice
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 개발용 데이터베이스 관리 도구
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: certis-pgadmin-dev
+    networks:
+      - cert-is-dev
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@certis.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    ports:
+      - "5050:80"
+    volumes:
+      - ./pgadmin:/var/lib/pgadmin
+    depends_on:
+      - postgresql-dev
+    restart: unless-stopped
+
+  # 개발용 Redis 관리 도구
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: certis-redis-commander-dev
+    networks:
+      - cert-is-dev
+    environment:
+      - REDIS_HOSTS=dev:redis-dev:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis-dev
+    restart: unless-stopped
+
+networks:
+  cert-is-dev:
+    driver: bridge
