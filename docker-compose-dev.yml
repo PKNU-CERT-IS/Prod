@@ -94,13 +94,12 @@ services:
     container_name: certis-redis-dev
     volumes:
       - redis-data-dev:/data
-      - ./Redis/redis-dev.conf:/usr/local/etc/redis/redis.conf
     networks:
       - cert-is-dev
     ports:
       - "6379:6379"
     command: >
-      redis-server /usr/local/etc/redis/redis.conf
+      redis-server
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
