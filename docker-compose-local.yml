@@ -25,16 +25,16 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       # 개발 설정
       - SPRING_PROFILES_ACTIVE=local
-      - EMBEDDED_POSTGRES_ENABLED=false  # 컨테이너 PostgreSQL 사용
-      - EMBEDDED_REDIS_ENABLED=false     # 컨테이너 Redis 사용
+      - EMBEDDED_POSTGRES_ENABLED=false # 컨테이너 PostgreSQL 사용
+      - EMBEDDED_REDIS_ENABLED=false # 컨테이너 Redis 사용
       - CACHE_TYPE=redis
       # 개발환경 CORS
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080
       # 개발용 JVM 설정
       - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
     ports:
-      - "8080:8080"   # 애플리케이션 포트
-      - "5005:5005"   # 원격 디버깅 포트
+      - "8080:8080" # 애플리케이션 포트
+      - "5005:5005" # 원격 디버깅 포트
     volumes:
       # 개발용 볼륨 마운트 (Hot Reload 지원)
       - ./BE/src:/app/src:ro
@@ -59,7 +59,7 @@ services:
     volumes:
       - postgresql-data-local:/var/lib/postgresql/data
       - ./db/migration:/docker-entrypoint-initdb.d
-      - ./db/dev-data:/docker-entrypoint-initdb.d/dev-data  # 개발용 샘플 데이터
+      - ./db/dev-data:/docker-entrypoint-initdb.d/dev-data # 개발용 샘플 데이터
     networks:
       - cert-is-local
     environment:
@@ -68,7 +68,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
     ports:
-      - "5432:5432"  # 개발환경에서는 표준 포트 사용
+      - "5432:5432" # 개발환경에서는 표준 포트 사용
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d certis_dev"]

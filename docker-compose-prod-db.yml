@@ -63,18 +63,31 @@ services:
       - "0.0.0.0:6379:6379"
     networks:
       - database-network
-    command: [
-      "redis-server",
-      "--bind", "0.0.0.0",
-      "--protected-mode", "no",
-      "--requirepass", "${REDIS_PASSWORD}",
-      "--appendonly", "yes",
-      "--maxmemory", "${REDIS_MAX_MEMORY:-400mb}",
-      "--maxmemory-policy", "allkeys-lru",
-      "--save", "900", "1",
-      "--save", "300", "10", 
-      "--save", "60", "10000"
-    ]
+    command:
+      [
+        "redis-server",
+        "--bind",
+        "0.0.0.0",
+        "--protected-mode",
+        "no",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "${REDIS_MAX_MEMORY:-400mb}",
+        "--maxmemory-policy",
+        "allkeys-lru",
+        "--save",
+        "900",
+        "1",
+        "--save",
+        "300",
+        "10",
+        "--save",
+        "60",
+        "10000",
+      ]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]

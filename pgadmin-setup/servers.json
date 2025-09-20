@@ -1,0 +1,16 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Certis PostgreSQL Dev",
+      "Group": "Development",
+      "Host": "postgresql-dev",
+      "Port": 5432,
+      "MaintenanceDB": "certis_dev",
+      "Username": "postgres",
+      "PassFile": "/pgadmin4/pgpass",
+      "SSLMode": "prefer",
+      "Favorite": true,
+      "Comment": "Certis 개발 환경 PostgreSQL 서버"
+    }
+  }
+}
