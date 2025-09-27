@@ -8,10 +8,10 @@
         Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin"
         Access-Control-Allow-Credentials "true"
         Access-Control-Max-Age "86400"
-        
+
         # 보안 헤더
         X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY" 
+        X-Frame-Options "DENY"
         X-XSS-Protection "1; mode=block"
         Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
         Content-Security-Policy "default-src 'self'; connect-src 'self' https://www.cert-is.com https://cert-is.com"
@@ -31,8 +31,6 @@
         reverse_proxy backend:8080 {
             header_up Host {http.request.host}
             header_up X-Real-IP {http.request.remote}
-            header_up X-Forwarded-For {http.request.remote}
-            header_up X-Forwarded-Proto {http.request.scheme}
         }
     }
 
@@ -49,14 +47,14 @@
     # TLS 설정
     tls admin@cert-is.com
 
+    # 간단한 로그 설정 - 기본 포맷 사용
     log {
-        output file /var/log/caddy/api_access.log {
+        output file /logs/api_access.log {
             roll_size 100mb
             roll_keep 5
             roll_keep_for 720h
         }
-        # Fail2Ban이 파싱하기 쉬운 형식
-        format transform `{ts} {request>remote_ip} "{request>method} {request>uri} {request>proto}" {status} {size} "{request>headers>Referer>[0]}" "{request>headers>User-Agent>[0]}" {duration}`
+        # 포맷 설정 제거 - 기본값 사용
     }
 }
 
