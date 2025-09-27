@@ -123,8 +123,8 @@ services:
     volumes:
       - ./pgadmin:/var/lib/pgadmin
       # 서버 자동 등록을 위한 설정 파일들
-      - ./pgadmin-setup/servers.json:/pgadmin4/servers.json
-      - ./pgadmin-setup/pgpass:/pgadmin4/pgpass
+      - ./pgadmin-setup/dev/servers.json:/pgadmin4/servers.json
+      - ./pgadmin-setup/dev/pgpass:/pgadmin4/pgpass
     depends_on:
       postgresql-dev:
         condition: service_healthy

@@ -16,4 +16,7 @@ logs
 
 FE
 Redis
-.env
+
+pgadmin-setup/*/pgpass
+pgadmin-setup/prod/
+.env*

@@ -11,6 +11,12 @@ volumes:
       type: none
       o: bind
       device: /var/data/redis
+  pgadmin-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/data/pgadmin
 
 services:
   # PostgreSQL Database
@@ -94,6 +100,61 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # PgAdmin for PostgreSQL Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: certis-pgadmin
+    env_file:
+      - ./.env
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin-setup/prod/servers.json:/pgadmin4/servers.json
+      - ./pgladmin-setup/prod/passfile:/pgadmin4/pgpass
+    ports:
+      - "0.0.0.0:5050:80"
+    networks:
+      - database-network
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Commander for Redis Management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: certis-redis-commander
+    env_file:
+      - ./.env
+    ports:
+      - "0.0.0.0:8081:8081"
+    networks:
+      - database-network
+    environment:
+      - REDIS_HOSTS=production:redis:6379:0:${REDIS_PASSWORD}
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
+      - REDIS_COMMANDER_PORT=8081
+      - REDIS_COMMANDER_URL_PREFIX=/redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/redis/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   database-network:

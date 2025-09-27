@@ -18,13 +18,13 @@ services:
       - 8080
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
 
-  # Caddy Reverse Proxy - 경량 설정
+  # Caddy Reverse Proxy - 경량 설정 + 로깅
   caddy:
     image: caddy:2-alpine
     container_name: certis-caddy
@@ -32,6 +32,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./Caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./logs/caddy:/var/log/caddy  # 로그 디렉토리 추가
     ports:
       - "80:80"
       - "443:443"
@@ -53,6 +54,30 @@ services:
       start_period: 30s
     environment:
       - DOMAIN=${DOMAIN}
+
+  # Fail2Ban - 보안 강화
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: certis-fail2ban
+    network_mode: "host"  # iptables 조작을 위해 필요
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./fail2ban:/data
+      - ./logs/caddy:/var/log/caddy:ro  # Caddy 로그 읽기 전용
+      - /var/log:/var/log:ro  # 시스템 로그 읽기 전용
+    environment:
+      - TZ=Asia/Seoul
+      - F2B_LOG_LEVEL=INFO
+      - F2B_DB_PURGE_AGE=1d
+    restart: unless-stopped
+    depends_on:
+      - caddy
+    # 리소스 제한
+    mem_limit: 50m
+    mem_reservation: 25m
+    cpus: 0.1
 
 networks:
   app-network:

@@ -1,0 +1,47 @@
+[DEFAULT]
+# 기본 설정
+bantime = 3600
+findtime = 600
+maxretry = 5
+backend = auto
+usedns = warn
+
+# 이메일 알림 (선택사항)
+# destemail = admin@cert-is.com
+# sender = fail2ban@cert-is.com
+# action = %(action_mwl)s
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 1800
+
+[caddy-auth]
+enabled = true
+port = http,https
+filter = caddy-auth
+logpath = /var/log/caddy/api_access.log
+maxretry = 3
+findtime = 600
+bantime = 1800
+
+[caddy-limit]
+enabled = true
+port = http,https
+filter = caddy-limit
+logpath = /var/log/caddy/api_access.log
+maxretry = 50
+findtime = 60
+bantime = 600
+
+[caddy-scan]
+enabled = true
+port = http,https
+filter = caddy-scan
+logpath = /var/log/caddy/api_access.log
+maxretry = 10
+findtime = 300
+bantime = 3600

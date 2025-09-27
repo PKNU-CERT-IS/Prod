@@ -49,14 +49,14 @@
     # TLS 설정
     tls admin@cert-is.com
 
-    # 로깅
     log {
         output file /var/log/caddy/api_access.log {
             roll_size 100mb
             roll_keep 5
             roll_keep_for 720h
         }
-        format console
+        # Fail2Ban이 파싱하기 쉬운 형식
+        format transform `{ts} {request>remote_ip} "{request>method} {request>uri} {request>proto}" {status} {size} "{request>headers>Referer>[0]}" "{request>headers>User-Agent>[0]}" {duration}`
     }
 }
 
