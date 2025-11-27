@@ -12,7 +12,6 @@ app_startup.log
 db
 logs
 
-.DS_Store
 
 FE
 Redis
@@ -20,3 +19,5 @@ Redis
 pgadmin-setup/*/pgpass
 pgadmin-setup/prod/
 .env*
+
+.DS_Store

@@ -1,14 +1,13 @@
 # API 서버 설정
 {$DOMAIN} {
-    # 전역 CORS 헤더 설정 (모든 요청에 적용)
-    header {
-        # CORS 헤더
-        Access-Control-Allow-Origin "https://www.cert-is.com, https://cert-is.com, https://cert-is.vercel.app, https://certis.mooo.com"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin"
-        Access-Control-Allow-Credentials "true"
-        Access-Control-Max-Age "86400"
+    # CORS preflight 요청은 Spring Boot에서 처리
+    # Caddy에서는 단순히 백엔드로 전달
 
+    # CORS 헤더는 Spring Boot에서 처리하므로 Caddy에서는 제거
+    # Spring Boot의 CorsConfig에서 모든 CORS 정책을 관리
+
+    # 보안 헤더 설정
+    header {
         # 보안 헤더
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
@@ -20,13 +19,7 @@
         -Server
     }
 
-    # OPTIONS 요청 (CORS preflight) 처리
-    @cors_preflight method OPTIONS
-    handle @cors_preflight {
-        respond "" 204
-    }
-
-    # API 요청 처리
+    # 기타 요청 처리
     handle /* {
         reverse_proxy backend:8080 {
             header_up Host {http.request.host}
