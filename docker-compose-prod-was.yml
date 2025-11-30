@@ -6,9 +6,17 @@ volumes:
 services:
   # Spring Boot Backend
   backend:
-    build:
-      context: BE
-      dockerfile: Dockerfile
+    # 빌드 옵션은 이제 안 씁니다
+    # build:
+    #   context: BE
+    #   dockerfile: Dockerfile
+
+    # 도커 허브로 부터 이미지를 받아 옵니다
+    image: bananaca1/certis-backend:latest
+
+    # 항상 최신 이미지를 다운로드 받도록 강제
+    pull_policy: always
+
     container_name: certis-backend
     networks:
       - app-network
