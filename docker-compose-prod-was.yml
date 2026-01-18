@@ -88,5 +88,5 @@ services:
 
 networks:
   app-network:
-    driver: bridge
-    internal: false
+    external: true    #  이미 존재하는 app-network 사용 (compose down 시에도 네트워크는 살아있도록)
+    name: app-network
