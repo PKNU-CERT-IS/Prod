@@ -16,10 +16,6 @@ services:
       resources:
         limits:
           memory: 1G  #DB 메모리 사용량 제한
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     restart: unless-stopped
     command: postgres -c max_connections=200 -c shared_buffers=128MB
 
