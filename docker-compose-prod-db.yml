@@ -2,7 +2,7 @@
 
 services:
   postgresql:
-    image: postgres:15.14-alpine
+    image: postgres:17-alpine
     container_name: certis-postgresql # WAS가 찾을 컨테이너 이름
     env_file:
       - ./BE/.env.prod
